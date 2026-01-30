@@ -447,6 +447,7 @@
                 justify-content: flex-start;
             }
         }
+
     </style>
 </head>
 <body>
@@ -490,57 +491,17 @@
                     <div class="auto-recognition-info">
                         <h4><i class="fas fa-lightbulb"></i> Como formatar para reconhecimento automático:</h4>
                         <ul>
-                            <li><strong>Coloque a pergunta em uma linha</strong></li>
-                            <li><strong>Coloque cada alternativa em uma linha seguinte (4 alternativas)</strong></li>
-                            <li><strong>Marque a alternativa correta com <code>***</code> na frente</strong></li>
-                            <li><strong>Os marcadores (3), a), b), 1), 2), etc. serão removidos automaticamente</strong></li>
-                            <li><strong>Separe questões diferentes com uma linha em branco</strong></li>
-                            <li><strong>Processa TODAS as questões de uma vez!</strong></li>
+                            <li><strong>Cada questão deve ser separada por uma linha em branco</strong></li>
+                            <li><strong>A primeira parte de cada bloco é a PERGUNTA</strong> (pode ter várias linhas)</li>
+                            <li><strong>Depois vêm as 4 ALTERNATIVAS</strong> (cada uma pode ter várias linhas)</li>
+                            <li><strong>Marque a alternativa correta com <code>***</code> no início da PRIMEIRA LINHA da alternativa</strong></li>
+                            <li><strong>Os marcadores (3), a), b), etc. serão removidos automaticamente</strong></li>
                         </ul>
-                        <p><strong>Exemplo com múltiplas questões:</strong></p>
-                        <div class="format-example">
-                            1) Qual é a capital do Brasil?<br>
-                            a) Rio de Janeiro<br>
-                            *** b) Brasília<br>
-                            c) São Paulo<br>
-                            d) Salvador<br>
-                            <br>
-                            2) Quantos planetas tem o sistema solar?<br>
-                            a) 7<br>
-                            *** b) 8<br>
-                            c) 9<br>
-                            d) 10<br>
-                            <br>
-                            3) Quem descobriu o Brasil?<br>
-                            *** a) Pedro Álvares Cabral<br>
-                            b) Cristóvão Colombo<br>
-                            c) Vasco da Gama<br>
-                            d) Fernão de Magalhães
-                        </div>
                     </div>
                     
                     <div class="auto-text-input">
                         <label for="autoTextInput">Cole suas questões aqui (várias de uma vez):</label>
-                        <textarea id="autoTextInput" rows="15" placeholder="Cole suas questões formatadas aqui...
-
-Exemplo:
-1) Qual é a capital do Brasil?
-a) Rio de Janeiro
-*** b) Brasília
-c) São Paulo
-d) Salvador
-
-2) Quantos planetas tem o sistema solar?
-a) 7
-*** b) 8
-c) 9
-d) 10
-
-3) Quem descobriu o Brasil?
-*** a) Pedro Álvares Cabral
-b) Cristóvão Colombo
-c) Vasco da Gama
-d) Fernão de Magalhães"></textarea>
+                        <textarea id="autoTextInput" rows="18" placeholder="Cole suas questões formatadas aqui..."></textarea>
                     </div>
                 </div>
                 
@@ -735,113 +696,128 @@ d) Fernão de Magalhães"></textarea>
                 }
             }
             
-            // Remove marcadores de numeração (3), a), 1), etc.
+            // Remove marcadores de numeração (3), a), 1), etc. - VERSÃO MELHORADA
             function removeNumberingMarkers(text) {
-                // Remove marcadores do tipo: 1), 2), 3), a), b), c), A), B), C), etc.
-                // Também remove marcadores com ponto: 1., 2., a., A., etc.
-                // E marcadores entre parênteses: (1), (2), (a), (A), etc.
+                if (!text) return '';
                 
-                // Primeiro, tenta remover padrões como "3) " no início
-                text = text.replace(/^\d+\)\s*/, '');
+                // Remove *** no início
+                text = text.replace(/^\*\*\*\s*/, '');
                 
-                // Remove padrões como "a) ", "b) ", "c) ", "d) "
-                text = text.replace(/^[a-d]\)\s*/i, '');
+                // Remove padrões comuns de numeração no início
+                // Padrão: número seguido de ) ou . ex: "3) ", "1. "
+                text = text.replace(/^\d+[\)\.]\s*/, '');
                 
-                // Remove padrões com ponto: "1. ", "a. "
-                text = text.replace(/^\d+\.\s*/, '');
-                text = text.replace(/^[a-d]\.\s*/i, '');
+                // Padrão: letra a-d seguida de ) ou . ex: "a) ", "b. "
+                text = text.replace(/^[a-d][\)\.]\s*/i, '');
                 
-                // Remove padrões entre parênteses: "(1) ", "(a) "
+                // Padrão: entre parênteses ex: "(3) ", "(a) "
                 text = text.replace(/^\(\d+\)\s*/, '');
                 text = text.replace(/^\([a-d]\)\s*/i, '');
                 
-                // Remove números romanos: I), II), III), IV)
-                text = text.replace(/^[IVXLCDM]+\)\s*/i, '');
+                // Remove números romanos ex: "I) ", "II. "
+                text = text.replace(/^[IVXLCDM]+[\)\.]\s*/i, '');
                 
                 return text.trim();
             }
             
-            // Processa texto automático para detectar MÚLTIPLAS questões de uma vez
+            // Processa texto automático para detectar questões com múltiplas linhas
             function processAutoText(text) {
                 const masterBankArray = [];
-                const lines = text.split('\n');
                 
-                let currentQuestion = null;
-                let currentAlternatives = [];
-                let correctIndex = -1;
-                let lineCount = 0;
-                let questionStarted = false;
+                // Divide o texto em blocos de questões (separados por linha em branco)
+                const questionBlocks = text.split(/\n\s*\n/);
                 
-                for (let i = 0; i < lines.length; i++) {
-                    const line = lines[i].trim();
+                for (const block of questionBlocks) {
+                    if (!block.trim()) continue;
                     
-                    // Se a linha está vazia, é um separador entre questões
-                    if (line === '' && questionStarted) {
-                        // Se já temos uma pergunta e 4 alternativas, adiciona a questão
-                        if (currentQuestion && currentAlternatives.length === 4) {
-                            if (correctIndex === -1) {
-                                // Se não tem alternativa correta marcada, pula esta questão
-                                console.log('Questão sem alternativa correta:', currentQuestion);
-                            } else {
-                                masterBankArray.push({
-                                    q: currentQuestion,
-                                    a: currentAlternatives,
-                                    c: correctIndex
-                                });
-                            }
-                        }
+                    const lines = block.split('\n');
+                    let question = '';
+                    const alternatives = ['', '', '', ''];
+                    let correctIndex = -1;
+                    
+                    let currentAlternative = -1; // -1 significa que ainda não começou as alternativas
+                    
+                    // Processa linha por linha
+                    for (let i = 0; i < lines.length; i++) {
+                        let line = lines[i].trim();
                         
-                        // Reseta para a próxima questão
-                        currentQuestion = null;
-                        currentAlternatives = [];
-                        correctIndex = -1;
-                        questionStarted = false;
-                        lineCount = 0;
-                        continue;
-                    }
-                    
-                    // Se a linha não está vazia
-                    if (line !== '') {
-                        // Se ainda não começou uma pergunta, esta é a pergunta
-                        if (!questionStarted) {
-                            currentQuestion = removeNumberingMarkers(line);
-                            questionStarted = true;
-                            lineCount = 1;
-                        } 
-                        // Se já tem pergunta e é uma das 4 alternativas
-                        else if (lineCount >= 1 && lineCount <= 4) {
-                            let altText = line;
-                            let isCorrect = false;
-                            
-                            // Verifica se tem *** no início (marcador de alternativa correta)
-                            if (altText.startsWith('***')) {
-                                isCorrect = true;
-                                altText = altText.substring(3).trim(); // Remove ***
-                                // O índice correto é baseado na POSIÇÃO da alternativa (0, 1, 2, 3)
-                                correctIndex = currentAlternatives.length;
-                            }
-                            
-                            // Remove todos os marcadores de alternativa
-                            altText = removeNumberingMarkers(altText);
-                            
-                            currentAlternatives.push(altText);
-                            lineCount++;
-                        }
-                        // Se já tem mais de 4 alternativas, ignora linhas extras
-                        else {
-                            // Linhas extras são ignoradas
+                        if (!line) continue;
+                        
+                        // Se é a primeira linha e ainda não tem pergunta, assume que é a pergunta
+                        if (i === 0 && !question) {
+                            question = removeNumberingMarkers(line);
                             continue;
                         }
+                        
+                        // Verifica se a linha indica o início de uma alternativa
+                        // Procura por padrões como: a), b), *** a), A), 1), etc.
+                        const altPattern = /^(\*\*\*\s*)?(\(?[a-d1-4][\.\)]?\s*)(.*)/i;
+                        const match = line.match(altPattern);
+                        
+                        if (match) {
+                            // Determina qual alternativa é
+                            const altChar = match[2].toLowerCase().replace(/[\(\)\.\s]/g, '');
+                            
+                            if (altChar === 'a' || altChar === '1') currentAlternative = 0;
+                            else if (altChar === 'b' || altChar === '2') currentAlternative = 1;
+                            else if (altChar === 'c' || altChar === '3') currentAlternative = 2;
+                            else if (altChar === 'd' || altChar === '4') currentAlternative = 3;
+                            else {
+                                // Se não reconheceu como alternativa, continua com a atual
+                                if (currentAlternative >= 0) {
+                                    alternatives[currentAlternative] += ' ' + line;
+                                }
+                                continue;
+                            }
+                            
+                            // Verifica se é a correta (tem ***)
+                            if (match[1] && match[1].includes('***')) {
+                                correctIndex = currentAlternative;
+                            }
+                            
+                            // Pega o conteúdo da alternativa (sem o marcador)
+                            let altContent = match[3] ? match[3].trim() : '';
+                            
+                            // Se a linha tinha ***, também remove do conteúdo
+                            altContent = altContent.replace(/^\*\*\*\s*/, '');
+                            
+                            // Remove qualquer numeração que possa ter sobrado
+                            altContent = removeNumberingMarkers(altContent);
+                            
+                            alternatives[currentAlternative] = altContent;
+                        } 
+                        // Se já está processando uma alternativa e a linha não começa com marcador
+                        else if (currentAlternative >= 0 && currentAlternative < 4) {
+                            // Continua adicionando à alternativa atual
+                            if (alternatives[currentAlternative]) {
+                                alternatives[currentAlternative] += ' ' + line;
+                            } else {
+                                alternatives[currentAlternative] = line;
+                            }
+                        }
+                        // Se ainda não começou as alternativas e não é pergunta
+                        else if (currentAlternative === -1 && question) {
+                            // Pode ser continuação da pergunta
+                            question += ' ' + line;
+                        }
                     }
-                }
-                
-                // Processa a última questão (se houver) após o loop
-                if (currentQuestion && currentAlternatives.length === 4 && correctIndex !== -1) {
-                    masterBankArray.push({
-                        q: currentQuestion,
-                        a: currentAlternatives,
-                        c: correctIndex
-                    });
+                    
+                    // Limpa as alternativas removendo marcadores residuais
+                    for (let i = 0; i < alternatives.length; i++) {
+                        alternatives[i] = removeNumberingMarkers(alternatives[i].trim());
+                    }
+                    
+                    // Verifica se temos uma questão válida
+                    const hasQuestion = question && question.trim() !== '';
+                    const hasAllAlternatives = alternatives.every(alt => alt.trim() !== '');
+                    
+                    if (hasQuestion && hasAllAlternatives && correctIndex !== -1) {
+                        masterBankArray.push({
+                            q: question.trim(),
+                            a: alternatives.map(alt => alt.trim()),
+                            c: correctIndex
+                        });
+                    }
                 }
                 
                 return masterBankArray;
@@ -849,6 +825,8 @@ d) Fernão de Magalhães"></textarea>
             
             // Converte as questões para o formato masterBank
             function convertToMasterBank() {
+                console.log('Convertendo... Modo atual:', currentMode);
+                
                 let masterBankArray = [];
                 
                 // Esconde alertas anteriores
@@ -856,6 +834,7 @@ d) Fernão de Magalhães"></textarea>
                 errorAlert.style.display = 'none';
                 
                 if (currentMode === 'manual') {
+                    console.log('Modo manual ativado');
                     const questionBlocks = document.querySelectorAll('.question-block');
                     
                     // Verifica se há pelo menos uma questão
@@ -930,6 +909,7 @@ d) Fernão de Magalhães"></textarea>
                     }
                 } else {
                     // Modo automático
+                    console.log('Modo automático ativado');
                     const text = autoTextInput.value.trim();
                     
                     if (!text) {
@@ -938,10 +918,15 @@ d) Fernão de Magalhães"></textarea>
                         return;
                     }
                     
+                    console.log('Texto para processar:', text.substring(0, 100) + '...');
+                    
                     masterBankArray = processAutoText(text);
                     
+                    console.log('Questões processadas:', masterBankArray.length);
+                    console.log('Questões:', masterBankArray);
+                    
                     if (masterBankArray.length === 0) {
-                        errorMessage.textContent = "Não foi possível detectar questões no formato esperado. Verifique se:\n\n1. Cada questão tem uma pergunta na primeira linha\n2. Cada questão tem exatamente 4 alternativas\n3. Pelo menos uma alternativa está marcada com ***\n4. As questões estão separadas por linha em branco\n\nExemplo:\n\n1) Pergunta?\na) Alternativa A\n*** b) Alternativa B\nc) Alternativa C\nd) Alternativa D\n\n2) Outra pergunta?\n*** a) Alternativa A\nb) Alternativa B\nc) Alternativa C\nd) Alternativa D";
+                        errorMessage.textContent = "Não foi possível detectar questões. Verifique o formato:\n\n1. Pergunta na primeira linha\n2. 4 alternativas marcadas com a), b), c), d)\n3. Marque a correta com *** no início\n4. Separe questões com linha em branco";
                         errorAlert.style.display = 'block';
                         return;
                     }
@@ -952,12 +937,12 @@ d) Fernão de Magalhães"></textarea>
                 for (let i = 0; i < masterBankArray.length; i++) {
                     const question = masterBankArray[i];
                     
-                    // Remove quebras de linha e escapa aspas
-                    const escapedQuestion = question.q.replace(/"/g, '\\"').replace(/\n/g, ' ').replace(/\r/g, ' ');
-                    const escapedAlt0 = question.a[0].replace(/"/g, '\\"').replace(/\n/g, ' ').replace(/\r/g, ' ');
-                    const escapedAlt1 = question.a[1].replace(/"/g, '\\"').replace(/\n/g, ' ').replace(/\r/g, ' ');
-                    const escapedAlt2 = question.a[2].replace(/"/g, '\\"').replace(/\n/g, ' ').replace(/\r/g, ' ');
-                    const escapedAlt3 = question.a[3].replace(/"/g, '\\"').replace(/\n/g, ' ').replace(/\r/g, ' ');
+                    // Remove quebras de linha extras, mas mantém o conteúdo
+                    const escapedQuestion = question.q.replace(/"/g, '\\"').replace(/\s+/g, ' ').trim();
+                    const escapedAlt0 = question.a[0].replace(/"/g, '\\"').replace(/\s+/g, ' ').trim();
+                    const escapedAlt1 = question.a[1].replace(/"/g, '\\"').replace(/\s+/g, ' ').trim();
+                    const escapedAlt2 = question.a[2].replace(/"/g, '\\"').replace(/\s+/g, ' ').trim();
+                    const escapedAlt3 = question.a[3].replace(/"/g, '\\"').replace(/\s+/g, ' ').trim();
                     
                     // Formato em uma linha por questão
                     masterBankString += `  {q: "${escapedQuestion}", a: ["${escapedAlt0}", "${escapedAlt1}", "${escapedAlt2}", "${escapedAlt3}"], c: ${question.c}}`;
@@ -1077,36 +1062,33 @@ d) Fernão de Magalhães"></textarea>
             copyBtn.addEventListener('click', copyToClipboard);
             exportJsonBtn.addEventListener('click', exportAsJson);
             
-            // Deixa o campo de texto automático vazio, apenas com placeholder
-            autoTextInput.value = '';
-            
-            // Teste: adiciona um exemplo no placeholder
-            autoTextInput.placeholder = `Cole suas questões formatadas aqui...
-
-Exemplo:
-1) Qual é a capital do Brasil?
-a) Rio de Janeiro
-*** b) Brasília
+            // Exemplo simples no modo automático
+            autoTextInput.value = `Qual é a capital do Brasil?
+*** a) Brasília
+b) Rio de Janeiro
 c) São Paulo
 d) Salvador
 
-2) Quantos planetas tem o sistema solar?
-a) 7
-*** b) 8
-c) 9
-d) 10
-
-3) Quem descobriu o Brasil?
-*** a) Pedro Álvares Cabral
-b) Cristóvão Colombo
-c) Vasco da Gama
-d) Fernão de Magalhães
-
-4) Qual é o maior planeta do sistema solar?
-a) Terra
-b) Marte
-*** c) Júpiter
-d) Saturno`;
+Quanto a linha de cota a afirmativa INCORRETA é?
+a) a linha de cota é uma linha sólida interrompendo no ponto médio para colocação da indicação de medidas
+*** b) elas são geralmente paralelas à linha em que a dimensão é dada
+c) todas as dimensões e letras são colocadas de modo que elas sejam lidas da direita para a esquerda
+d) as dimensões da parte circular são sempre dadas em termos do diâmetro do círculo`;
+            
+            // Teste: adiciona alguns dados de exemplo no modo manual também
+            setTimeout(() => {
+                // Preenche a primeira questão com dados de exemplo
+                const firstQuestion = document.querySelector('.question-block');
+                if (firstQuestion) {
+                    const questionId = firstQuestion.id.split('-')[1];
+                    document.getElementById(`question-${questionId}-text`).value = "Qual é a capital do Brasil?";
+                    document.getElementById(`question-${questionId}-alt-0`).value = "Rio de Janeiro";
+                    document.getElementById(`question-${questionId}-alt-1`).value = "Brasília";
+                    document.getElementById(`question-${questionId}-alt-2`).value = "São Paulo";
+                    document.getElementById(`question-${questionId}-alt-3`).value = "Salvador";
+                    document.getElementById(`question-${questionId}-correct-1`).checked = true;
+                }
+            }, 500);
         });
     </script>
 </body>
