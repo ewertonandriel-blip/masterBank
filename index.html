@@ -501,7 +501,7 @@
                     
                     <div class="auto-text-input">
                         <label for="autoTextInput">Cole suas questões aqui (várias de uma vez):</label>
-                        <textarea id="autoTextInput" rows="18" placeholder="Cole suas questões formatadas aqui..."></textarea>
+                        <textarea id="autoTextInput" rows="18" placeholder="Cole as questões que serão convertidas para masterBank aqui..."></textarea>
                     </div>
                 </div>
                 
@@ -1062,33 +1062,9 @@
             copyBtn.addEventListener('click', copyToClipboard);
             exportJsonBtn.addEventListener('click', exportAsJson);
             
-            // Exemplo simples no modo automático
-            autoTextInput.value = `Qual é a capital do Brasil?
-*** a) Brasília
-b) Rio de Janeiro
-c) São Paulo
-d) Salvador
-
-Quanto a linha de cota a afirmativa INCORRETA é?
-a) a linha de cota é uma linha sólida interrompendo no ponto médio para colocação da indicação de medidas
-*** b) elas são geralmente paralelas à linha em que a dimensão é dada
-c) todas as dimensões e letras são colocadas de modo que elas sejam lidas da direita para a esquerda
-d) as dimensões da parte circular são sempre dadas em termos do diâmetro do círculo`;
-            
-            // Teste: adiciona alguns dados de exemplo no modo manual também
-            setTimeout(() => {
-                // Preenche a primeira questão com dados de exemplo
-                const firstQuestion = document.querySelector('.question-block');
-                if (firstQuestion) {
-                    const questionId = firstQuestion.id.split('-')[1];
-                    document.getElementById(`question-${questionId}-text`).value = "Qual é a capital do Brasil?";
-                    document.getElementById(`question-${questionId}-alt-0`).value = "Rio de Janeiro";
-                    document.getElementById(`question-${questionId}-alt-1`).value = "Brasília";
-                    document.getElementById(`question-${questionId}-alt-2`).value = "São Paulo";
-                    document.getElementById(`question-${questionId}-alt-3`).value = "Salvador";
-                    document.getElementById(`question-${questionId}-correct-1`).checked = true;
-                }
-            }, 500);
+            // Removido o exemplo pré-preenchido no modo automático
+            // O campo já tem o placeholder indicando o que fazer
+            autoTextInput.value = '';
         });
     </script>
 </body>
