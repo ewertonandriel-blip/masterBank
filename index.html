@@ -696,16 +696,16 @@
                 }
             }
             
-            // Remove marcadores de numeração (3), a), 1), etc. - VERSÃO MELHORADA
+            // Remove marcadores de numeração (3), a), 1), 165-, etc. - VERSÃO MELHORADA
             function removeNumberingMarkers(text) {
                 if (!text) return '';
                 
                 // Remove *** no início
                 text = text.replace(/^\*\*\*\s*/, '');
                 
-                // Remove padrões comuns de numeração no início
-                // Padrão: número seguido de ) ou . ex: "3) ", "1. "
-                text = text.replace(/^\d+[\)\.]\s*/, '');
+                // Remove padrões de numeração no início (incluindo número seguido de - ou . ou ))
+                // Ex: "165- ", "165. ", "165) ", "313 - "
+                text = text.replace(/^\d+\s*[-\.\)]\s*/, '');
                 
                 // Padrão: letra a-d seguida de ) ou . ex: "a) ", "b. "
                 text = text.replace(/^[a-d][\)\.]\s*/i, '');
@@ -720,7 +720,7 @@
                 return text.trim();
             }
             
-            // Processa texto automático para detectar questões com múltiplas linhas
+            // Processa texto automático para detectar questões com múltiplas linhas - VERSÃO CORRIGIDA E SIMPLIFICADA
             function processAutoText(text) {
                 const masterBankArray = [];
                 
@@ -735,76 +735,61 @@
                     const alternatives = ['', '', '', ''];
                     let correctIndex = -1;
                     
-                    let currentAlternative = -1; // -1 significa que ainda não começou as alternativas
+                    let currentAlternative = -1;
                     
-                    // Processa linha por linha
+                    // Primeiro, identifica a pergunta (primeira linha não vazia)
                     for (let i = 0; i < lines.length; i++) {
-                        let line = lines[i].trim();
-                        
+                        const line = lines[i].trim();
                         if (!line) continue;
                         
-                        // Se é a primeira linha e ainda não tem pergunta, assume que é a pergunta
-                        if (i === 0 && !question) {
+                        // Se é a primeira linha com conteúdo, é a pergunta
+                        if (i === 0 || !question) {
                             question = removeNumberingMarkers(line);
-                            continue;
-                        }
-                        
-                        // Verifica se a linha indica o início de uma alternativa
-                        // Procura por padrões como: a), b), *** a), A), 1), etc.
-                        const altPattern = /^(\*\*\*\s*)?(\(?[a-d1-4][\.\)]?\s*)(.*)/i;
-                        const match = line.match(altPattern);
-                        
-                        if (match) {
-                            // Determina qual alternativa é
-                            const altChar = match[2].toLowerCase().replace(/[\(\)\.\s]/g, '');
-                            
-                            if (altChar === 'a' || altChar === '1') currentAlternative = 0;
-                            else if (altChar === 'b' || altChar === '2') currentAlternative = 1;
-                            else if (altChar === 'c' || altChar === '3') currentAlternative = 2;
-                            else if (altChar === 'd' || altChar === '4') currentAlternative = 3;
-                            else {
-                                // Se não reconheceu como alternativa, continua com a atual
-                                if (currentAlternative >= 0) {
-                                    alternatives[currentAlternative] += ' ' + line;
-                                }
-                                continue;
-                            }
-                            
-                            // Verifica se é a correta (tem ***)
-                            if (match[1] && match[1].includes('***')) {
-                                correctIndex = currentAlternative;
-                            }
-                            
-                            // Pega o conteúdo da alternativa (sem o marcador)
-                            let altContent = match[3] ? match[3].trim() : '';
-                            
-                            // Se a linha tinha ***, também remove do conteúdo
-                            altContent = altContent.replace(/^\*\*\*\s*/, '');
-                            
-                            // Remove qualquer numeração que possa ter sobrado
-                            altContent = removeNumberingMarkers(altContent);
-                            
-                            alternatives[currentAlternative] = altContent;
-                        } 
-                        // Se já está processando uma alternativa e a linha não começa com marcador
-                        else if (currentAlternative >= 0 && currentAlternative < 4) {
-                            // Continua adicionando à alternativa atual
-                            if (alternatives[currentAlternative]) {
-                                alternatives[currentAlternative] += ' ' + line;
-                            } else {
-                                alternatives[currentAlternative] = line;
-                            }
-                        }
-                        // Se ainda não começou as alternativas e não é pergunta
-                        else if (currentAlternative === -1 && question) {
-                            // Pode ser continuação da pergunta
-                            question += ' ' + line;
+                            break;
                         }
                     }
                     
-                    // Limpa as alternativas removendo marcadores residuais
+                    // Depois, processa as alternativas (linhas que começam com A), a), ***A, etc.)
+                    for (let i = 0; i < lines.length; i++) {
+                        const line = lines[i].trim();
+                        if (!line) continue;
+                        
+                        // Ignora a primeira linha (já é a pergunta)
+                        if (i === 0) continue;
+                        
+                        // Verifica se é uma alternativa (começa com A, B, C, D seguido de ) ou . ou -)
+                        // Padrão mais flexível: começa com A, B, C, D (maiúsculo ou minúsculo) opcionalmente com *** antes
+                        const altMatch = line.match(/^(\*\*\*)?\s*([a-dA-D])\s*[\)\.\-]?\s*(.*)/);
+                        
+                        if (altMatch) {
+                            const hasCorreta = altMatch[1] !== undefined; // Se tem ***
+                            const letra = altMatch[2].toLowerCase();
+                            const conteudo = altMatch[3] ? altMatch[3].trim() : '';
+                            
+                            let index = -1;
+                            if (letra === 'a') index = 0;
+                            else if (letra === 'b') index = 1;
+                            else if (letra === 'c') index = 2;
+                            else if (letra === 'd') index = 3;
+                            
+                            if (index !== -1) {
+                                currentAlternative = index;
+                                alternatives[currentAlternative] = conteudo;
+                                
+                                if (hasCorreta) {
+                                    correctIndex = currentAlternative;
+                                }
+                            }
+                        } 
+                        // Se não corresponde ao padrão mas já estamos em uma alternativa, é continuação
+                        else if (currentAlternative !== -1) {
+                            alternatives[currentAlternative] += ' ' + line;
+                        }
+                    }
+                    
+                    // Limpa as alternativas
                     for (let i = 0; i < alternatives.length; i++) {
-                        alternatives[i] = removeNumberingMarkers(alternatives[i].trim());
+                        alternatives[i] = alternatives[i].trim();
                     }
                     
                     // Verifica se temos uma questão válida
@@ -814,7 +799,7 @@
                     if (hasQuestion && hasAllAlternatives && correctIndex !== -1) {
                         masterBankArray.push({
                             q: question.trim(),
-                            a: alternatives.map(alt => alt.trim()),
+                            a: alternatives,
                             c: correctIndex
                         });
                     }
@@ -926,7 +911,23 @@
                     console.log('Questões:', masterBankArray);
                     
                     if (masterBankArray.length === 0) {
-                        errorMessage.textContent = "Não foi possível detectar questões. Verifique o formato:\n\n1. Pergunta na primeira linha\n2. 4 alternativas marcadas com a), b), c), d)\n3. Marque a correta com *** no início\n4. Separe questões com linha em branco";
+                        errorMessage.textContent = "Não foi possível detectar questões. Verifique o formato:\n\n" +
+                            "1. Pergunta na primeira linha\n" +
+                            "2. 4 alternativas marcadas com A), B), C), D) (maiúsculas ou minúsculas)\n" +
+                            "3. Marque a correta com *** no início (ex: ***D) Doc 9859.)\n" +
+                            "4. Separe questões com linha em branco\n\n" +
+                            "Exemplo:\n" +
+                            "313 - Qual manual de orientação...\n" +
+                            "A) 17.\n" +
+                            "B) 9861.\n" +
+                            "C) 2022.\n" +
+                            "***D) Doc 9859.\n" +
+                            "\n" +
+                            "165 - Identifique...\n" +
+                            "a) B.\n" +
+                            "b) C.\n" +
+                            "c) A.\n" +
+                            "***d) D.";
                         errorAlert.style.display = 'block';
                         return;
                     }
