@@ -408,6 +408,27 @@
             margin-bottom: 10px;
         }
         
+        .import-section {
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .import-section textarea {
+            width: 100%;
+            height: 350px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+        
+        .import-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+        
         @media (max-width: 480px) {
             .content {
                 padding: 0 5px;
@@ -447,7 +468,6 @@
                 justify-content: flex-start;
             }
         }
-
     </style>
 </head>
 <body>
@@ -469,6 +489,9 @@
             <button class="mode-btn" id="autoModeBtn">
                 <i class="fas fa-robot"></i> Modo Automático
             </button>
+            <button class="mode-btn" id="importModeBtn">
+                <i class="fas fa-upload"></i> Importar masterBank
+            </button>
         </div>
         
         <div class="alert alert-success" id="successAlert">
@@ -483,11 +506,19 @@
             <div class="input-section">
                 <h2 class="section-title"><i class="fas fa-edit"></i> Entrada de Dados</h2>
                 
-                <div id="questionsContainer">
-                    <!-- As questões serão adicionadas aqui pelo JavaScript -->
+                <!-- Modo Manual -->
+                <div id="manualSection">
+                    <div id="questionsContainer">
+                        <!-- As questões serão adicionadas aqui pelo JavaScript -->
+                    </div>
+                    
+                    <button id="addQuestion" class="btn-add">
+                        <i class="fas fa-plus-circle"></i> Adicionar Nova Questão
+                    </button>
                 </div>
                 
-                <div id="autoInputSection" style="display: none;">
+                <!-- Modo Automático -->
+                <div id="autoSection" style="display: none;">
                     <div class="auto-recognition-info">
                         <h4><i class="fas fa-lightbulb"></i> Como formatar para reconhecimento automático:</h4>
                         <ul>
@@ -505,13 +536,33 @@
                     </div>
                 </div>
                 
-                <button id="addQuestion" class="btn-add">
-                    <i class="fas fa-plus-circle"></i> Adicionar Nova Questão
-                </button>
+                <!-- Modo Importação masterBank -->
+                <div id="importSection" style="display: none;">
+                    <div class="auto-recognition-info" style="background-color: #e8f4fd; border-color: #b8daff;">
+                        <h4 style="color: #004085;"><i class="fas fa-info-circle"></i> Importar do formato masterBank:</h4>
+                        <ul>
+                            <li><strong>Cole o código masterBank completo</strong> (com ou sem colchetes)</li>
+                            <li><strong>O formato esperado é:</strong> <code>{q: "Pergunta", a: ["A", "B", "C", "D"], c: 0}</code></li>
+                            <li><strong>As questões podem estar em linhas separadas ou em array</strong></li>
+                            <li><strong>A saída será numerada (01, 02, 03...) com alternativas A) B) C) D)</strong></li>
+                            <li><strong>A alternativa correta terá "CORRETA" no final</strong></li>
+                        </ul>
+                    </div>
+                    
+                    <div class="auto-text-input">
+                        <label for="importTextInput">Cole o código masterBank aqui:</label>
+                        <textarea id="importTextInput" rows="18" placeholder='Cole o código masterBank aqui...
+Exemplo:
+[
+  {q: "Qual é a capital do Brasil?", a: ["São Paulo", "Rio de Janeiro", "Brasília", "Salvador"], c: 2},
+  {q: "Quem descobriu o Brasil?", a: ["Pedro Álvares Cabral", "Cristóvão Colombo", "Vasco da Gama", "Fernão de Magalhães"], c: 0}
+]'></textarea>
+                    </div>
+                </div>
                 
-                <div class="buttons">
+                <div class="buttons" style="margin-top: 15px;">
                     <button id="convertBtn" class="btn-primary">
-                        <i class="fas fa-sync-alt"></i> Converter
+                        <i class="fas fa-sync-alt"></i> Converter para Formato Normal
                     </button>
                     <button id="clearBtn" class="btn-secondary">
                         <i class="fas fa-broom"></i> Limpar
@@ -520,19 +571,19 @@
             </div>
             
             <div class="output-section">
-                <h2 class="section-title"><i class="fas fa-code"></i> Saída masterBank</h2>
-                <p class="mode-description">Formato em linha (uma linha por questão)</p>
+                <h2 class="section-title"><i class="fas fa-file-alt"></i> Saída - Formato Normal</h2>
+                <p class="mode-description">Questões numeradas (01, 02, 03...) com alternativas A) B) C) D) e "CORRETA" no final da correta</p>
                 
                 <div class="output-container">
-                    <textarea id="output" placeholder="O formato masterBank das suas questões aparecerá aqui..."></textarea>
+                    <textarea id="output" placeholder="As questões no formato normal aparecerão aqui..."></textarea>
                     <button id="copyBtn" class="copy-btn">
                         <i class="fas fa-copy"></i> Copiar
                     </button>
                 </div>
                 
                 <div class="buttons" style="margin-top: 15px;">
-                    <button id="exportJson" class="btn-success">
-                        <i class="fas fa-file-export"></i> Exportar JSON
+                    <button id="exportTxt" class="btn-success">
+                        <i class="fas fa-file-export"></i> Exportar TXT
                     </button>
                 </div>
             </div>
@@ -550,18 +601,28 @@
             const convertBtn = document.getElementById('convertBtn');
             const clearBtn = document.getElementById('clearBtn');
             const copyBtn = document.getElementById('copyBtn');
-            const exportJsonBtn = document.getElementById('exportJson');
+            const exportTxtBtn = document.getElementById('exportTxt');
             const outputTextarea = document.getElementById('output');
             const successAlert = document.getElementById('successAlert');
             const errorAlert = document.getElementById('errorAlert');
             const errorMessage = document.getElementById('errorMessage');
+            
+            // Botões de modo
             const manualModeBtn = document.getElementById('manualModeBtn');
             const autoModeBtn = document.getElementById('autoModeBtn');
-            const autoInputSection = document.getElementById('autoInputSection');
+            const importModeBtn = document.getElementById('importModeBtn');
+            
+            // Seções
+            const manualSection = document.getElementById('manualSection');
+            const autoSection = document.getElementById('autoSection');
+            const importSection = document.getElementById('importSection');
+            
+            // Inputs
             const autoTextInput = document.getElementById('autoTextInput');
+            const importTextInput = document.getElementById('importTextInput');
             
             // Variável para controlar o modo atual
-            let currentMode = 'manual'; // 'manual' ou 'auto'
+            let currentMode = 'manual'; // 'manual', 'auto' ou 'import'
             
             // Variável para contar o número total de questões
             let totalQuestions = 0;
@@ -578,29 +639,38 @@
                 switchMode('auto');
             });
             
+            importModeBtn.addEventListener('click', function() {
+                switchMode('import');
+            });
+            
             function switchMode(mode) {
                 currentMode = mode;
                 
                 // Atualiza botões
                 manualModeBtn.classList.remove('active');
                 autoModeBtn.classList.remove('active');
+                importModeBtn.classList.remove('active');
+                
+                // Esconde todas as seções
+                manualSection.style.display = 'none';
+                autoSection.style.display = 'none';
+                importSection.style.display = 'none';
                 
                 if (mode === 'manual') {
                     manualModeBtn.classList.add('active');
-                    autoInputSection.style.display = 'none';
-                    addQuestionBtn.style.display = 'block';
-                    questionsContainer.style.display = 'block';
-                } else {
+                    manualSection.style.display = 'block';
+                } else if (mode === 'auto') {
                     autoModeBtn.classList.add('active');
-                    autoInputSection.style.display = 'block';
-                    addQuestionBtn.style.display = 'none';
-                    questionsContainer.style.display = 'none';
+                    autoSection.style.display = 'block';
+                } else {
+                    importModeBtn.classList.add('active');
+                    importSection.style.display = 'block';
                 }
             }
             
             // Adiciona uma nova questão
             function addQuestion() {
-                const questionId = Date.now(); // ID único para a questão
+                const questionId = Date.now() + Math.random(); // ID único para a questão
                 totalQuestions++; // Incrementa o contador
                 const questionNumber = totalQuestions; // Usa o contador atualizado
                 
@@ -696,31 +766,30 @@
                 }
             }
             
-            // Remove marcadores de numeração (3), a), 1), 165-, etc. - VERSÃO MELHORADA
+            // Remove marcadores de numeração
             function removeNumberingMarkers(text) {
                 if (!text) return '';
                 
                 // Remove *** no início
                 text = text.replace(/^\*\*\*\s*/, '');
                 
-                // Remove padrões de numeração no início (incluindo número seguido de - ou . ou ))
-                // Ex: "165- ", "165. ", "165) ", "313 - "
+                // Remove padrões de numeração no início
                 text = text.replace(/^\d+\s*[-\.\)]\s*/, '');
                 
-                // Padrão: letra a-d seguida de ) ou . ex: "a) ", "b. "
+                // Padrão: letra a-d seguida de ) ou .
                 text = text.replace(/^[a-d][\)\.]\s*/i, '');
                 
-                // Padrão: entre parênteses ex: "(3) ", "(a) "
+                // Padrão: entre parênteses
                 text = text.replace(/^\(\d+\)\s*/, '');
                 text = text.replace(/^\([a-d]\)\s*/i, '');
                 
-                // Remove números romanos ex: "I) ", "II. "
+                // Remove números romanos
                 text = text.replace(/^[IVXLCDM]+[\)\.]\s*/i, '');
                 
                 return text.trim();
             }
             
-            // Processa texto automático para detectar questões com múltiplas linhas - VERSÃO CORRIGIDA E SIMPLIFICADA
+            // Processa texto automático para detectar questões
             function processAutoText(text) {
                 const masterBankArray = [];
                 
@@ -749,7 +818,7 @@
                         }
                     }
                     
-                    // Depois, processa as alternativas (linhas que começam com A), a), ***A, etc.)
+                    // Depois, processa as alternativas
                     for (let i = 0; i < lines.length; i++) {
                         const line = lines[i].trim();
                         if (!line) continue;
@@ -757,8 +826,7 @@
                         // Ignora a primeira linha (já é a pergunta)
                         if (i === 0) continue;
                         
-                        // Verifica se é uma alternativa (começa com A, B, C, D seguido de ) ou . ou -)
-                        // Padrão mais flexível: começa com A, B, C, D (maiúsculo ou minúsculo) opcionalmente com *** antes
+                        // Verifica se é uma alternativa
                         const altMatch = line.match(/^(\*\*\*)?\s*([a-dA-D])\s*[\)\.\-]?\s*(.*)/);
                         
                         if (altMatch) {
@@ -808,10 +876,50 @@
                 return masterBankArray;
             }
             
-            // Converte as questões para o formato masterBank
-            function convertToMasterBank() {
-                console.log('Convertendo... Modo atual:', currentMode);
+            // Função para extrair questões do formato masterBank (usando regex)
+            function extractMasterBankQuestions(text) {
+                const questions = [];
                 
+                // Padrão regex para encontrar objetos no formato {q: "...", a: [...], c: ...}
+                const questionRegex = /\{\s*q\s*:\s*["'](.*?)["']\s*,\s*a\s*:\s*\[(.*?)\]\s*,\s*c\s*:\s*(\d+)\s*\}/gs;
+                let match;
+                
+                while ((match = questionRegex.exec(text)) !== null) {
+                    const questionText = match[1].replace(/\\"/g, '"'); // Remove escapes de aspas
+                    
+                    // Processa o array de alternativas
+                    const alternativesText = match[2];
+                    const alternatives = [];
+                    
+                    // Divide as alternativas considerando aspas
+                    const altRegex = /["'](.*?)["']/gs;
+                    let altMatch;
+                    while ((altMatch = altRegex.exec(alternativesText)) !== null) {
+                        let alt = altMatch[1].replace(/\\"/g, '"');
+                        alternatives.push(alt);
+                    }
+                    
+                    const correctIndex = parseInt(match[3]);
+                    
+                    if (questionText && alternatives.length === 4) {
+                        questions.push({
+                            q: questionText,
+                            a: alternatives,
+                            c: correctIndex
+                        });
+                    }
+                }
+                
+                return questions;
+            }
+            
+            // Função para formatar número com dois dígitos (01, 02, etc.)
+            function formatNumber(num) {
+                return num.toString().padStart(2, '0');
+            }
+            
+            // Converte para formato normal com numeração e alternativas A) B) C) D)
+            function convertToNormalFormat() {
                 let masterBankArray = [];
                 
                 // Esconde alertas anteriores
@@ -819,7 +927,6 @@
                 errorAlert.style.display = 'none';
                 
                 if (currentMode === 'manual') {
-                    console.log('Modo manual ativado');
                     const questionBlocks = document.querySelectorAll('.question-block');
                     
                     // Verifica se há pelo menos uma questão
@@ -838,12 +945,14 @@
                         // Obtém o texto da pergunta
                         const questionText = document.getElementById(`question-${questionId}-text`).value.trim();
                         
-                        // Obtém as alternativas
+                        // Obtém as alternativas (removendo a palavra "CORRETA" se presente)
                         const alternatives = [];
                         let emptyAlternative = false;
                         
                         for (let j = 0; j < 4; j++) {
-                            const alt = document.getElementById(`question-${questionId}-alt-${j}`).value.trim();
+                            let alt = document.getElementById(`question-${questionId}-alt-${j}`).value.trim();
+                            // Remove "CORRETA" do final se presente (para conversão)
+                            alt = alt.replace(/\s+CORRETA$/, '');
                             alternatives.push(alt);
                             if (!alt) {
                                 emptyAlternative = true;
@@ -892,9 +1001,7 @@
                         errorAlert.scrollIntoView({ behavior: 'smooth' });
                         return;
                     }
-                } else {
-                    // Modo automático
-                    console.log('Modo automático ativado');
+                } else if (currentMode === 'auto') {
                     const text = autoTextInput.value.trim();
                     
                     if (!text) {
@@ -903,61 +1010,86 @@
                         return;
                     }
                     
-                    console.log('Texto para processar:', text.substring(0, 100) + '...');
-                    
                     masterBankArray = processAutoText(text);
                     
-                    console.log('Questões processadas:', masterBankArray.length);
-                    console.log('Questões:', masterBankArray);
+                    if (masterBankArray.length === 0) {
+                        errorMessage.textContent = "Não foi possível detectar questões. Verifique o formato.";
+                        errorAlert.style.display = 'block';
+                        return;
+                    }
+                } else {
+                    // Modo import - extrai do texto colado
+                    const importText = importTextInput.value.trim();
+                    
+                    if (!importText) {
+                        errorMessage.textContent = "Cole o código masterBank para converter.";
+                        errorAlert.style.display = 'block';
+                        return;
+                    }
+                    
+                    // Tenta extrair usando regex primeiro
+                    masterBankArray = extractMasterBankQuestions(importText);
+                    
+                    // Se não encontrou, tenta eval como fallback
+                    if (masterBankArray.length === 0) {
+                        try {
+                            let processedText = importText;
+                            
+                            // Se não começar com [, adiciona colchetes
+                            if (!processedText.trim().startsWith('[')) {
+                                processedText = '[' + processedText + ']';
+                            }
+                            
+                            // Substitui aspas simples por duplas se necessário
+                            processedText = processedText.replace(/'/g, '"');
+                            
+                            // Tenta avaliar
+                            const result = eval('(' + processedText + ')');
+                            
+                            if (Array.isArray(result)) {
+                                masterBankArray = result;
+                            } else if (result && typeof result === 'object' && result.q) {
+                                masterBankArray = [result];
+                            }
+                        } catch (evalError) {
+                            console.log('Erro no eval:', evalError);
+                        }
+                    }
                     
                     if (masterBankArray.length === 0) {
-                        errorMessage.textContent = "Não foi possível detectar questões. Verifique o formato:\n\n" +
-                            "1. Pergunta na primeira linha\n" +
-                            "2. 4 alternativas marcadas com A), B), C), D) (maiúsculas ou minúsculas)\n" +
-                            "3. Marque a correta com *** no início (ex: ***D) Doc 9859.)\n" +
-                            "4. Separe questões com linha em branco\n\n" +
-                            "Exemplo:\n" +
-                            "313 - Qual manual de orientação...\n" +
-                            "A) 17.\n" +
-                            "B) 9861.\n" +
-                            "C) 2022.\n" +
-                            "***D) Doc 9859.\n" +
-                            "\n" +
-                            "165 - Identifique...\n" +
-                            "a) B.\n" +
-                            "b) C.\n" +
-                            "c) A.\n" +
-                            "***d) D.";
+                        errorMessage.textContent = "Não foi possível encontrar questões no formato masterBank. Verifique se o código está correto.";
                         errorAlert.style.display = 'block';
                         return;
                     }
                 }
                 
-                // Converte para string formatada em uma linha por questão
-                let masterBankString = "[\n";
+                // Converte para o formato normal com numeração e alternativas
+                let normalFormatString = "";
+                
                 for (let i = 0; i < masterBankArray.length; i++) {
                     const question = masterBankArray[i];
                     
-                    // Remove quebras de linha extras, mas mantém o conteúdo
-                    const escapedQuestion = question.q.replace(/"/g, '\\"').replace(/\s+/g, ' ').trim();
-                    const escapedAlt0 = question.a[0].replace(/"/g, '\\"').replace(/\s+/g, ' ').trim();
-                    const escapedAlt1 = question.a[1].replace(/"/g, '\\"').replace(/\s+/g, ' ').trim();
-                    const escapedAlt2 = question.a[2].replace(/"/g, '\\"').replace(/\s+/g, ' ').trim();
-                    const escapedAlt3 = question.a[3].replace(/"/g, '\\"').replace(/\s+/g, ' ').trim();
+                    // Adiciona o número da questão (01, 02, 03...)
+                    normalFormatString += `${formatNumber(i + 1)}) ${question.q}\n\n`;
                     
-                    // Formato em uma linha por questão
-                    masterBankString += `  {q: "${escapedQuestion}", a: ["${escapedAlt0}", "${escapedAlt1}", "${escapedAlt2}", "${escapedAlt3}"], c: ${question.c}}`;
+                    // Adiciona as alternativas A) B) C) D)
+                    const letras = ['A', 'B', 'C', 'D'];
+                    for (let j = 0; j < 4; j++) {
+                        let alternativa = question.a[j];
+                        // Adiciona "CORRETA" no final da alternativa correta
+                        if (j === question.c) {
+                            alternativa += ' CORRETA';
+                        }
+                        normalFormatString += `${letras[j]}) ${alternativa}\n`;
+                    }
                     
-                    // Adiciona vírgula se não for o último
+                    // Adiciona uma linha em branco entre as questões (exceto após a última)
                     if (i < masterBankArray.length - 1) {
-                        masterBankString += ",\n";
-                    } else {
-                        masterBankString += "\n";
+                        normalFormatString += '\n';
                     }
                 }
-                masterBankString += "]";
                 
-                outputTextarea.value = masterBankString;
+                outputTextarea.value = normalFormatString;
                 
                 // Rolagem suave para a saída
                 document.querySelector('.output-section').scrollIntoView({ 
@@ -966,8 +1098,8 @@
                 });
                 
                 // Mostra mensagem de sucesso
-                const modeText = currentMode === 'manual' ? 'manuais' : 'automáticas';
-                successAlert.textContent = `Convertidas ${masterBankArray.length} questões ${modeText} com sucesso!`;
+                const modeText = currentMode === 'manual' ? 'manuais' : (currentMode === 'auto' ? 'automáticas' : 'importadas');
+                successAlert.textContent = `Convertidas ${masterBankArray.length} questões ${modeText} para o formato normal!`;
                 successAlert.style.display = 'block';
                 setTimeout(() => {
                     successAlert.style.display = 'none';
@@ -979,11 +1111,13 @@
                 if (confirm("Tem certeza que deseja limpar todas as questões?")) {
                     if (currentMode === 'manual') {
                         questionsContainer.innerHTML = '';
-                        totalQuestions = 0; // Reseta o contador
+                        totalQuestions = 0;
                         updateAddButtonState();
-                        addQuestion(); // Adiciona uma questão vazia após limpar
-                    } else {
+                        addQuestion();
+                    } else if (currentMode === 'auto') {
                         autoTextInput.value = '';
+                    } else {
+                        importTextInput.value = '';
                     }
                     
                     outputTextarea.value = '';
@@ -1025,8 +1159,8 @@
                 }
             }
             
-            // Exporta como arquivo JSON
-            function exportAsJson() {
+            // Exporta como arquivo TXT
+            function exportAsTxt() {
                 if (!outputTextarea.value.trim()) {
                     errorMessage.textContent = "Nenhum conteúdo para exportar. Converta questões primeiro.";
                     errorAlert.style.display = 'block';
@@ -1035,37 +1169,37 @@
                 
                 try {
                     const data = outputTextarea.value;
-                    const blob = new Blob([data], { type: 'application/json' });
+                    const blob = new Blob([data], { type: 'text/plain' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'questoes-masterbank.json';
+                    a.download = 'questoes-formato-normal.txt';
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
                     
-                    successAlert.textContent = "Arquivo JSON baixado com sucesso!";
+                    successAlert.textContent = "Arquivo TXT baixado com sucesso!";
                     successAlert.style.display = 'block';
                     setTimeout(() => {
                         successAlert.style.display = 'none';
                     }, 3000);
                 } catch (error) {
-                    errorMessage.textContent = "Erro ao exportar como JSON: " + error.message;
+                    errorMessage.textContent = "Erro ao exportar como TXT: " + error.message;
                     errorAlert.style.display = 'block';
                 }
             }
             
             // Adiciona eventos
             addQuestionBtn.addEventListener('click', addQuestion);
-            convertBtn.addEventListener('click', convertToMasterBank);
+            convertBtn.addEventListener('click', convertToNormalFormat);
             clearBtn.addEventListener('click', clearAll);
             copyBtn.addEventListener('click', copyToClipboard);
-            exportJsonBtn.addEventListener('click', exportAsJson);
+            exportTxtBtn.addEventListener('click', exportAsTxt);
             
-            // Removido o exemplo pré-preenchido no modo automático
-            // O campo já tem o placeholder indicando o que fazer
+            // Limpa os campos
             autoTextInput.value = '';
+            importTextInput.value = '';
         });
     </script>
 </body>
