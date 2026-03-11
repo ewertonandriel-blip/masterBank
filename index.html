@@ -279,6 +279,15 @@
             background-color: #218838;
         }
         
+        .btn-info {
+            background-color: #17a2b8;
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background-color: #138496;
+        }
+        
         .btn-add {
             background-color: #17a2b8;
             color: white;
@@ -429,6 +438,18 @@
             justify-content: flex-end;
         }
         
+        .conversion-options {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+            flex-wrap: wrap;
+        }
+        
+        .conversion-options button {
+            flex: 1;
+            min-width: 200px;
+        }
+        
         @media (max-width: 480px) {
             .content {
                 padding: 0 5px;
@@ -467,6 +488,10 @@
                 width: 100%;
                 justify-content: flex-start;
             }
+            
+            .conversion-options button {
+                min-width: 100%;
+            }
         }
     </style>
 </head>
@@ -474,12 +499,12 @@
     <div class="container">
         <header>
             <h1><i class="fas fa-database"></i> Conversor masterBank</h1>
-            <p class="subtitle">Converta perguntas e alternativas no formato masterBank para uso em sistemas de quiz e avaliações</p>
+            <p class="subtitle">Converta perguntas e alternativas nos dois sentidos: masterBank ⇄ Formato Normal</p>
         </header>
         
         <div class="format-info">
             <p><strong>Formato masterBank:</strong> <code>{q: "Pergunta?", a: ["Opção A", "Opção B", "Opção C", "Opção D"], c: 0}</code></p>
-            <p><strong>Lembrete:</strong> O valor de 'c' é o índice da resposta correta (0 = A, 1 = B, 2 = C, 3 = D)</p>
+            <p><strong>Formato Normal:</strong> 01) Pergunta?<br>A) Opção A<br>B) Opção B CORRETA<br>C) Opção C<br>D) Opção D</p>
         </div>
         
         <div class="conversion-modes">
@@ -543,9 +568,7 @@
                         <ul>
                             <li><strong>Cole o código masterBank completo</strong> (com ou sem colchetes)</li>
                             <li><strong>O formato esperado é:</strong> <code>{q: "Pergunta", a: ["A", "B", "C", "D"], c: 0}</code></li>
-                            <li><strong>As questões podem estar em linhas separadas ou em array</strong></li>
-                            <li><strong>A saída será numerada (01, 02, 03...) com alternativas A) B) C) D)</strong></li>
-                            <li><strong>A alternativa correta terá "CORRETA" no final</strong></li>
+                            <li><strong>Use os botões abaixo para escolher o formato de saída</strong></li>
                         </ul>
                     </div>
                     
@@ -560,10 +583,16 @@ Exemplo:
                     </div>
                 </div>
                 
-                <div class="buttons" style="margin-top: 15px;">
-                    <button id="convertBtn" class="btn-primary">
-                        <i class="fas fa-sync-alt"></i> Converter para Formato Normal
+                <div class="conversion-options">
+                    <button id="convertToMasterBankBtn" class="btn-primary">
+                        <i class="fas fa-code"></i> Converter para masterBank
                     </button>
+                    <button id="convertToNormalBtn" class="btn-success">
+                        <i class="fas fa-file-alt"></i> Converter para Normal
+                    </button>
+                </div>
+                
+                <div class="buttons" style="margin-top: 15px;">
                     <button id="clearBtn" class="btn-secondary">
                         <i class="fas fa-broom"></i> Limpar
                     </button>
@@ -571,26 +600,26 @@ Exemplo:
             </div>
             
             <div class="output-section">
-                <h2 class="section-title"><i class="fas fa-file-alt"></i> Saída - Formato Normal</h2>
-                <p class="mode-description">Questões numeradas (01, 02, 03...) com alternativas A) B) C) D) e "CORRETA" no final da correta</p>
+                <h2 class="section-title"><i class="fas fa-output"></i> Saída</h2>
+                <p class="mode-description" id="outputDescription">Resultado da conversão aparecerá aqui</p>
                 
                 <div class="output-container">
-                    <textarea id="output" placeholder="As questões no formato normal aparecerão aqui..."></textarea>
+                    <textarea id="output" placeholder="O resultado da conversão aparecerá aqui..."></textarea>
                     <button id="copyBtn" class="copy-btn">
                         <i class="fas fa-copy"></i> Copiar
                     </button>
                 </div>
                 
                 <div class="buttons" style="margin-top: 15px;">
-                    <button id="exportTxt" class="btn-success">
-                        <i class="fas fa-file-export"></i> Exportar TXT
+                    <button id="exportBtn" class="btn-info">
+                        <i class="fas fa-file-export"></i> Exportar Arquivo
                     </button>
                 </div>
             </div>
         </div>
         
         <footer>
-            <p>Ferramenta de Conversão masterBank &copy; 2023 | Formato: {q: "Pergunta?", a: ["Opção A", "Opção B", "Opção C", "Opção D"], c: 0}</p>
+            <p>Ferramenta de Conversão masterBank &copy; 2023 | Conversão nos dois sentidos</p>
         </footer>
     </div>
 
@@ -598,11 +627,13 @@ Exemplo:
         document.addEventListener('DOMContentLoaded', function() {
             const questionsContainer = document.getElementById('questionsContainer');
             const addQuestionBtn = document.getElementById('addQuestion');
-            const convertBtn = document.getElementById('convertBtn');
+            const convertToMasterBankBtn = document.getElementById('convertToMasterBankBtn');
+            const convertToNormalBtn = document.getElementById('convertToNormalBtn');
             const clearBtn = document.getElementById('clearBtn');
             const copyBtn = document.getElementById('copyBtn');
-            const exportTxtBtn = document.getElementById('exportTxt');
+            const exportBtn = document.getElementById('exportBtn');
             const outputTextarea = document.getElementById('output');
+            const outputDescription = document.getElementById('outputDescription');
             const successAlert = document.getElementById('successAlert');
             const errorAlert = document.getElementById('errorAlert');
             const errorMessage = document.getElementById('errorMessage');
@@ -918,8 +949,168 @@ Exemplo:
                 return num.toString().padStart(2, '0');
             }
             
-            // Converte para formato normal com numeração e alternativas A) B) C) D)
-            function convertToNormalFormat() {
+            // ===== FUNÇÃO 1: CONVERTER PARA FORMATO masterBank =====
+            function convertToMasterBank() {
+                let masterBankArray = [];
+                
+                // Esconde alertas anteriores
+                successAlert.style.display = 'none';
+                errorAlert.style.display = 'none';
+                
+                if (currentMode === 'manual') {
+                    const questionBlocks = document.querySelectorAll('.question-block');
+                    
+                    // Verifica se há pelo menos uma questão
+                    if (questionBlocks.length === 0) {
+                        errorMessage.textContent = "Adicione pelo menos uma questão antes de converter.";
+                        errorAlert.style.display = 'block';
+                        return;
+                    }
+                    
+                    let hasError = false;
+                    
+                    for (let i = 0; i < questionBlocks.length; i++) {
+                        const block = questionBlocks[i];
+                        const questionId = block.id.split('-')[1];
+                        
+                        // Obtém o texto da pergunta
+                        const questionText = document.getElementById(`question-${questionId}-text`).value.trim();
+                        
+                        // Obtém as alternativas (removendo a palavra "CORRETA" se presente)
+                        const alternatives = [];
+                        let emptyAlternative = false;
+                        
+                        for (let j = 0; j < 4; j++) {
+                            let alt = document.getElementById(`question-${questionId}-alt-${j}`).value.trim();
+                            // Remove "CORRETA" do final se presente (para conversão)
+                            alt = alt.replace(/\s+CORRETA$/, '');
+                            alternatives.push(alt);
+                            if (!alt) {
+                                emptyAlternative = true;
+                            }
+                        }
+                        
+                        // Obtém a alternativa correta
+                        let correctIndex = -1;
+                        for (let j = 0; j < 4; j++) {
+                            const radioBtn = document.getElementById(`question-${questionId}-correct-${j}`);
+                            if (radioBtn && radioBtn.checked) {
+                                correctIndex = parseInt(radioBtn.value);
+                                break;
+                            }
+                        }
+                        
+                        // Validação: verifica se todos os campos estão preenchidos
+                        if (!questionText) {
+                            hasError = true;
+                            errorMessage.textContent = `A questão ${i+1} não tem pergunta preenchida.`;
+                            break;
+                        }
+                        
+                        if (emptyAlternative) {
+                            hasError = true;
+                            errorMessage.textContent = `A questão ${i+1} tem alternativas não preenchidas.`;
+                            break;
+                        }
+                        
+                        if (correctIndex === -1) {
+                            hasError = true;
+                            errorMessage.textContent = `A questão ${i+1} não tem alternativa correta selecionada.`;
+                            break;
+                        }
+                        
+                        // Adiciona ao array no formato masterBank
+                        masterBankArray.push({
+                            q: questionText,
+                            a: alternatives,
+                            c: correctIndex
+                        });
+                    }
+                    
+                    if (hasError) {
+                        errorAlert.style.display = 'block';
+                        errorAlert.scrollIntoView({ behavior: 'smooth' });
+                        return;
+                    }
+                } else if (currentMode === 'auto') {
+                    const text = autoTextInput.value.trim();
+                    
+                    if (!text) {
+                        errorMessage.textContent = "Cole o texto com as questões no campo de entrada.";
+                        errorAlert.style.display = 'block';
+                        return;
+                    }
+                    
+                    masterBankArray = processAutoText(text);
+                    
+                    if (masterBankArray.length === 0) {
+                        errorMessage.textContent = "Não foi possível detectar questões. Verifique o formato.";
+                        errorAlert.style.display = 'block';
+                        return;
+                    }
+                } else {
+                    // Modo import - usa as questões do campo de importação
+                    const importText = importTextInput.value.trim();
+                    
+                    if (!importText) {
+                        errorMessage.textContent = "Cole o código masterBank para converter.";
+                        errorAlert.style.display = 'block';
+                        return;
+                    }
+                    
+                    // Extrai as questões
+                    masterBankArray = extractMasterBankQuestions(importText);
+                    
+                    if (masterBankArray.length === 0) {
+                        errorMessage.textContent = "Não foi possível encontrar questões no formato masterBank.";
+                        errorAlert.style.display = 'block';
+                        return;
+                    }
+                }
+                
+                // Converte para string formatada em uma linha por questão
+                let masterBankString = "[\n";
+                for (let i = 0; i < masterBankArray.length; i++) {
+                    const question = masterBankArray[i];
+                    
+                    // Remove quebras de linha extras e escapa aspas
+                    const escapedQuestion = question.q.replace(/"/g, '\\"').replace(/\s+/g, ' ').trim();
+                    const escapedAlt0 = question.a[0].replace(/"/g, '\\"').replace(/\s+/g, ' ').trim();
+                    const escapedAlt1 = question.a[1].replace(/"/g, '\\"').replace(/\s+/g, ' ').trim();
+                    const escapedAlt2 = question.a[2].replace(/"/g, '\\"').replace(/\s+/g, ' ').trim();
+                    const escapedAlt3 = question.a[3].replace(/"/g, '\\"').replace(/\s+/g, ' ').trim();
+                    
+                    // Formato em uma linha por questão
+                    masterBankString += `  {q: "${escapedQuestion}", a: ["${escapedAlt0}", "${escapedAlt1}", "${escapedAlt2}", "${escapedAlt3}"], c: ${question.c}}`;
+                    
+                    // Adiciona vírgula se não for o último
+                    if (i < masterBankArray.length - 1) {
+                        masterBankString += ",\n";
+                    } else {
+                        masterBankString += "\n";
+                    }
+                }
+                masterBankString += "]";
+                
+                outputTextarea.value = masterBankString;
+                outputDescription.textContent = "Formato masterBank (código)";
+                
+                // Rolagem suave para a saída
+                document.querySelector('.output-section').scrollIntoView({ 
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+                
+                // Mostra mensagem de sucesso
+                successAlert.textContent = `Convertidas ${masterBankArray.length} questões para o formato masterBank!`;
+                successAlert.style.display = 'block';
+                setTimeout(() => {
+                    successAlert.style.display = 'none';
+                }, 3000);
+            }
+            
+            // ===== FUNÇÃO 2: CONVERTER PARA FORMATO NORMAL =====
+            function convertToNormal() {
                 let masterBankArray = [];
                 
                 // Esconde alertas anteriores
@@ -1090,6 +1281,7 @@ Exemplo:
                 }
                 
                 outputTextarea.value = normalFormatString;
+                outputDescription.textContent = "Formato Normal com numeração (01, 02...) e CORRETA no final da alternativa correta";
                 
                 // Rolagem suave para a saída
                 document.querySelector('.output-section').scrollIntoView({ 
@@ -1098,8 +1290,7 @@ Exemplo:
                 });
                 
                 // Mostra mensagem de sucesso
-                const modeText = currentMode === 'manual' ? 'manuais' : (currentMode === 'auto' ? 'automáticas' : 'importadas');
-                successAlert.textContent = `Convertidas ${masterBankArray.length} questões ${modeText} para o formato normal!`;
+                successAlert.textContent = `Convertidas ${masterBankArray.length} questões para o formato normal!`;
                 successAlert.style.display = 'block';
                 setTimeout(() => {
                     successAlert.style.display = 'none';
@@ -1121,6 +1312,7 @@ Exemplo:
                     }
                     
                     outputTextarea.value = '';
+                    outputDescription.textContent = "Resultado da conversão aparecerá aqui";
                     
                     // Esconde alertas
                     successAlert.style.display = 'none';
@@ -1159,8 +1351,8 @@ Exemplo:
                 }
             }
             
-            // Exporta como arquivo TXT
-            function exportAsTxt() {
+            // Exporta como arquivo
+            function exportFile() {
                 if (!outputTextarea.value.trim()) {
                     errorMessage.textContent = "Nenhum conteúdo para exportar. Converta questões primeiro.";
                     errorAlert.style.display = 'block';
@@ -1169,33 +1361,40 @@ Exemplo:
                 
                 try {
                     const data = outputTextarea.value;
-                    const blob = new Blob([data], { type: 'text/plain' });
+                    const isMasterBank = outputTextarea.value.trim().startsWith('[');
+                    
+                    // Determina extensão e nome do arquivo baseado no conteúdo
+                    const extension = isMasterBank ? 'json' : 'txt';
+                    const filename = isMasterBank ? 'questoes-masterbank.json' : 'questoes-formato-normal.txt';
+                    
+                    const blob = new Blob([data], { type: isMasterBank ? 'application/json' : 'text/plain' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = 'questoes-formato-normal.txt';
+                    a.download = filename;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
                     
-                    successAlert.textContent = "Arquivo TXT baixado com sucesso!";
+                    successAlert.textContent = `Arquivo ${filename} baixado com sucesso!`;
                     successAlert.style.display = 'block';
                     setTimeout(() => {
                         successAlert.style.display = 'none';
                     }, 3000);
                 } catch (error) {
-                    errorMessage.textContent = "Erro ao exportar como TXT: " + error.message;
+                    errorMessage.textContent = "Erro ao exportar arquivo: " + error.message;
                     errorAlert.style.display = 'block';
                 }
             }
             
             // Adiciona eventos
             addQuestionBtn.addEventListener('click', addQuestion);
-            convertBtn.addEventListener('click', convertToNormalFormat);
+            convertToMasterBankBtn.addEventListener('click', convertToMasterBank);
+            convertToNormalBtn.addEventListener('click', convertToNormal);
             clearBtn.addEventListener('click', clearAll);
             copyBtn.addEventListener('click', copyToClipboard);
-            exportTxtBtn.addEventListener('click', exportAsTxt);
+            exportBtn.addEventListener('click', exportFile);
             
             // Limpa os campos
             autoTextInput.value = '';
